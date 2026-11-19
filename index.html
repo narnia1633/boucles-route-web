@@ -7,9 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="apple-mobile-web-app-title" content="Boucles Route">
+<meta name="apple-mobile-web-app-title" content="Boucles Vélo">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23f97316'/%3E%3Ctext x='50' y='68' font-size='58' text-anchor='middle'%3E🚴%3C/text%3E%3C/svg%3E">
-<title>Boucles Route – itinéraires vélo de route</title>
+<title>Boucles Vélo – route, gravel et VTT</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
 :root{--accent:#f97316;--accent-d:#ea580c;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--soft:#f1f5f9;--ok:#16a34a;--bad:#dc2626}
@@ -46,6 +46,14 @@ button{cursor:pointer}
 .tab{border:0;background:none;padding:6px 12px;border-radius:8px;font-size:14px;color:var(--muted)}
 .tab.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .body{overflow:auto;padding:0 16px 16px;-webkit-overflow-scrolling:touch}
+.disc{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.disc button{height:44px;border:1.5px solid var(--line);background:#fff;border-radius:12px;font-weight:700;font-size:14px;color:#334155}
+.disc button.on{border-color:var(--accent);background:#fff7ed;color:var(--accent-d)}
+.surf{margin:2px 0 10px}
+.surf-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:#e2e8f0}
+.surf-bar i{display:block;height:100%}
+.surf-lbl{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:4px}
+.note{font-size:12px;color:#92400e;background:#fef3c7;border-radius:8px;padding:6px 8px;margin-top:6px}
 .start-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--soft);border-radius:12px;padding:10px 12px}
 .start-row small{color:var(--muted);font-size:12px}
 #startLbl{font-weight:600;font-size:15px}
@@ -158,7 +166,7 @@ body.riding #panel,body.riding #topbar{display:none}
 <section id="panel">
   <button class="handle" id="handle" aria-label="Agrandir / réduire"><span></span></button>
   <div class="head">
-    <div class="brand">🚴 <b>Boucles Route</b></div>
+    <div class="brand"><span id="brandIcon">🚴</span> <b id="brandName">Boucles Route</b></div>
     <div class="tabs">
       <button class="tab on" data-t="create">Créer</button>
       <button class="tab" data-t="favs">Favoris</button>
@@ -166,6 +174,11 @@ body.riding #panel,body.riding #topbar{display:none}
   </div>
   <div class="body">
     <div id="t-create">
+      <div class="disc" id="disc">
+        <button data-d="route" class="on">🚴 Route</button>
+        <button data-d="gravel">🌾 Gravel</button>
+        <button data-d="vtt">🚵 VTT</button>
+      </div>
       <div class="start-row">
         <div><small>Départ</small><div id="startLbl">Recherche de ta position…</div></div>
         <button id="btnPick" class="ghost">📍 Choisir sur la carte</button>
@@ -189,18 +202,14 @@ body.riding #panel,body.riding #topbar{display:none}
             <option value="270">Ouest</option><option value="315">Nord-Ouest</option>
           </select>
         </label>
-        <label class="f">Routes
-          <select id="prof">
-            <option value="fastbike">Rapides (vélo de route)</option>
-            <option value="fastbike-lowtraffic">Peu de trafic</option>
-            <option value="fastbike-verylowtraffic">Très peu de trafic</option>
-          </select>
+        <label class="f"><span id="profLbl">Routes</span>
+          <select id="prof"></select>
         </label>
         <label class="f">Relief
           <select id="relief"><option value="any">Peu importe</option><option value="flat">Le plus plat</option><option value="hilly">Le plus de D+</option></select>
         </label>
         <label class="f">Vitesse moyenne
-          <div class="unit"><input type="number" id="speed" min="10" max="45" step="1" value="25"><span>km/h</span></div>
+          <div class="unit"><input type="number" id="speed" min="5" max="45" step="1" value="25"><span>km/h</span></div>
         </label>
       </div>
 
@@ -214,6 +223,10 @@ body.riding #panel,body.riding #topbar{display:none}
           <div class="kpi"><b id="dUp">–</b><small>m D+</small></div>
           <div class="kpi"><b id="dTime">–</b><small>estimé</small></div>
           <div class="kpi"><b id="dMax">–</b><small>pente max</small></div>
+        </div>
+        <div class="surf" id="dSurf" hidden>
+          <div class="surf-bar"><i id="sPaved" style="background:#64748b"></i><i id="sOff" style="background:#a16207"></i></div>
+          <div class="surf-lbl"><span id="sPavedTxt"></span><span id="sOffTxt"></span></div>
         </div>
         <div class="elev-wrap"><canvas id="elev"></canvas></div>
         <div class="legend">
@@ -233,7 +246,7 @@ body.riding #panel,body.riding #topbar{display:none}
       </div>
 
       <div class="foot">
-        Itinéraires : <a href="https://brouter.de" target="_blank" rel="noopener">BRouter</a> (secours : OSRM) · Données © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · Météo et altitude : <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>.<br>
+        Itinéraires : <a href="https://brouter.de" target="_blank" rel="noopener">BRouter</a> (secours : OSRM). En gravel et VTT, respecte les sentiers interdits aux vélos et les propriétés privées · Données © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · Météo et altitude : <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>.<br>
         Astuce : appui long sur la carte pour déplacer le départ. Vérifie toujours le parcours avant de partir.
       </div>
     </div>
@@ -273,12 +286,12 @@ const store = {
 };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const COLORS = ['#f97316', '#2563eb', '#16a34a'];
-const S = { start: null, startName: '', routes: [], sel: -1, wind: null, engine: 'brouter', pick: false, ride: null, hoverD: null, busy: false };
+const S = { disc: 'route', badProf: new Set(), start: null, startName: '', routes: [], sel: -1, wind: null, engine: 'brouter', pick: false, ride: null, hoverD: null, busy: false };
 
 /* ---------- toast / status ---------- */
 let toastT;
 function toast(msg, ms = 3500) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), ms); }
-function status(msg, spin) { $('#status').innerHTML = msg ? (spin ? '<span class="spin"></span>' : '') + '<span>' + msg + '</span>' : ''; }
+function status(msg, spin) { $('#status').style.flexDirection = ''; $('#status').style.alignItems = ''; $('#status').innerHTML = msg ? (spin ? '<span class="spin"></span>' : '') + '<span>' + msg + '</span>' : ''; }
 
 /* ---------- geometry ---------- */
 const RE = 6371, toRad = d => d * Math.PI / 180, toDeg = r => r * 180 / Math.PI;
@@ -304,6 +317,22 @@ function segDist(p, a, b) { // km, local projection
 function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const CARD = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
 const card = d => CARD[Math.round((((d % 360) + 360) % 360) / 45) % 8];
+const DISC = {
+  route:  { label: 'Route',  icon: '🚴', short: '',       km: [10, 200, 60], speed: 25, climb: 4, layer: 'Plan',                 gpx: 'cycling',
+            profLabel: 'Routes',  profiles: [['fastbike', 'Rapides (vélo de route)'], ['fastbike-lowtraffic', 'Peu de trafic'], ['fastbike-verylowtraffic', 'Très peu de trafic']] },
+  gravel: { label: 'Gravel', icon: '🌾', short: 'gravel', km: [10, 150, 50], speed: 19, climb: 5, layer: 'Vélo (CyclOSM)',       gpx: 'gravel_cycling',
+            profLabel: 'Terrain', profiles: [['gravel', 'Chemins roulants'], ['trekking', 'Mixte (pistes + chemins)']] },
+  vtt:    { label: 'VTT',    icon: '🚵', short: 'VTT',    km: [5, 80, 30],   speed: 13, climb: 7, layer: 'Relief (OpenTopoMap)', gpx: 'mountain_biking',
+            profLabel: 'Terrain', profiles: [['mtb-zossebart', 'Sentiers (XC)'], ['mtb-zossebart-hard', 'Sentiers techniques'], ['gravel', 'Chemins larges']] }
+};
+const FALLBACK = {
+  'fastbike-lowtraffic': ['fastbike'], 'fastbike-verylowtraffic': ['fastbike-lowtraffic', 'fastbike'],
+  'gravel': ['trekking'], 'trekking': ['fastbike'],
+  'mtb-zossebart': ['mtb', 'hiking-mountain', 'gravel'], 'mtb-zossebart-hard': ['mtb-zossebart', 'mtb', 'hiking-mountain', 'gravel']
+};
+const PROF_FR = { 'fastbike': 'route rapide', 'fastbike-lowtraffic': 'route peu fréquentée', 'fastbike-verylowtraffic': 'route très peu fréquentée',
+  'gravel': 'gravel', 'trekking': 'vélo loisir (mixte)', 'mtb-zossebart': 'VTT XC', 'mtb-zossebart-hard': 'VTT technique', 'mtb': 'VTT',
+  'hiking-mountain': 'sentiers de randonnée', 'osrm': 'OSRM vélo' };
 const CARD_LONG = { N: 'le nord', NE: 'le nord-est', E: "l'est", SE: 'le sud-est', S: 'le sud', SO: 'le sud-ouest', O: "l'ouest", NO: 'le nord-ouest' };
 
 /* ---------- map ---------- */
@@ -412,7 +441,24 @@ async function routeBRouter(pts, profile) {
   if (!res.ok) throw new Error((await res.text()).slice(0, 200) || ('HTTP ' + res.status));
   const f = (await res.json()).features[0];
   const coords = f.geometry.coordinates.map(c => [c[1], c[0], c[2] != null ? c[2] : null]);
-  return buildRoute(coords, parseFloat(f.properties['filtered ascend']));
+  const r = buildRoute(coords, parseFloat(f.properties['filtered ascend']));
+  r.off = surfaceShare(f.properties.messages);
+  return r;
+}
+function isUnpaved(tags) {
+  const s = /surface=([\w:]+)/.exec(tags);
+  if (s) return /^(unpaved|gravel|fine_gravel|compacted|dirt|earth|ground|grass|sand|pebblestone|mud|woodchips|rock|clay|grass_paver)/.test(s[1]);
+  const tt = /tracktype=(grade\d)/.exec(tags);
+  if (tt) return tt[1] !== 'grade1';
+  return /highway=(track|path|bridleway)\b/.test(tags);
+}
+function surfaceShare(msgs) {
+  if (!Array.isArray(msgs) || msgs.length < 2) return null;
+  const h = msgs[0], di = h.indexOf('Distance'), wi = h.indexOf('WayTags');
+  if (di < 0 || wi < 0) return null;
+  let on = 0, off = 0;
+  for (let i = 1; i < msgs.length; i++) { const d = +msgs[i][di] || 0; if (isUnpaved(String(msgs[i][wi] || ''))) off += d; else on += d; }
+  return on + off > 0 ? off / (on + off) : null;
 }
 async function routeOSRM(pts) {
   const c = pts.map(p => p[1].toFixed(6) + ',' + p[0].toFixed(6)).join(';');
@@ -423,17 +469,22 @@ async function routeOSRM(pts) {
   await addElevation(coords);
   return buildRoute(coords, null);
 }
+const isProfErr = e => /profil|\.brf|not ?found|exist|unknown|no such/i.test((e && e.message) || '');
 async function routeAny(pts) {
-  const prof = $('#prof').value;
+  const sel = $('#prof').value;
   if (S.engine === 'brouter') {
-    try { return await routeBRouter(pts, prof); }
-    catch (e) {
-      if (isNet(e)) { S.engine = 'osrm'; toast('BRouter injoignable : bascule sur OSRM'); }
-      else if (prof !== 'fastbike' && /profile/i.test(e.message)) return await routeBRouter(pts, 'fastbike');
-      else throw e;
+    const chain = [sel, ...(FALLBACK[sel] || [])].filter(p => !S.badProf.has(p));
+    for (const p of chain) {
+      try { const r = await routeBRouter(pts, p); r.profile = p; return r; }
+      catch (e) {
+        if (isNet(e)) { S.engine = 'osrm'; toast('BRouter injoignable : bascule sur OSRM'); break; }
+        if (isProfErr(e)) { S.badProf.add(p); continue; }
+        throw e;
+      }
     }
+    if (S.engine === 'brouter') throw new Error('Aucun profil disponible');
   }
-  return await routeOSRM(pts);
+  const r = await routeOSRM(pts); r.profile = 'osrm'; return r;
 }
 async function addElevation(coords) {
   const n = Math.min(100, coords.length), idx = [];
@@ -525,7 +576,8 @@ async function generate() {
     try {
       const r = await makeRoute(S.start, km, type, thetas[i], seed0 + i * 1013);
       const th = ((thetas[i] % 360) + 360) % 360;
-      r.name = `${type === 'ar' ? 'Aller-retour' : 'Boucle'} vers ${CARD_LONG[card(th)]}`;
+      const D = DISC[S.disc]; r.disc = S.disc;
+      r.name = `${type === 'ar' ? 'Aller-retour' : 'Boucle'}${D.short ? ' ' + D.short : ''} vers ${CARD_LONG[card(th)]}`;
       r.color = COLORS[res.length]; res.push(r);
       S.routes = res.slice(); drawRoutes(); renderResults();
     } catch (e) { lastErr = e; console.warn(e); if (isNet(e)) { netFail = true; break; } }
@@ -534,7 +586,17 @@ async function generate() {
   else if (relief === 'hilly') res.sort((a, b) => b.ascent / b.distKm - a.ascent / a.distKm);
   res.forEach((r, i) => r.color = COLORS[i]);
   S.routes = res; drawRoutes();
-  if (res.length) { select(0); status(`${res.length} itinéraire${res.length > 1 ? 's' : ''} · touche une carte ou un tracé pour comparer`); }
+  if (res.length) {
+    select(0);
+    status(`${res.length} itinéraire${res.length > 1 ? 's' : ''} · touche une carte ou un tracé pour comparer`);
+    const sel = $('#prof').value, used = res[0].profile;
+    if (used && used !== sel) {
+      let msg = `Profil « ${PROF_FR[sel] || sel} » indisponible sur le serveur : calcul en mode « ${PROF_FR[used] || used} ».`;
+      if (used === 'hiking-mountain') msg += ' Vérifie que les sentiers sont autorisés aux VTT.';
+      $('#status').insertAdjacentHTML('beforeend', `<div class="note">${esc(msg)}</div>`);
+      $('#status').style.flexDirection = 'column'; $('#status').style.alignItems = 'flex-start';
+    } else { $('#status').style.flexDirection = ''; $('#status').style.alignItems = ''; }
+  }
   else { renderResults(); status(netFail ? 'Impossible de joindre le service d\'itinéraires. Vérifie ta connexion.' : 'Aucun itinéraire trouvé ici. Déplace le départ ou change la distance.'); if (lastErr) console.warn(lastErr); }
   S.busy = false; $('#btnGen').disabled = false;
 }
@@ -564,8 +626,8 @@ function styleLines() {
   });
   if (lines[S.sel]) lines[S.sel].bringToFront();
 }
-const speed = () => Math.max(8, +$('#speed').value || 25);
-const estH = r => r.distKm / speed() + r.ascent / 100 * 4 / 60;
+const speed = () => Math.max(4, +$('#speed').value || DISC[S.disc].speed);
+const estH = r => r.distKm / speed() + r.ascent / 100 * DISC[r.disc || S.disc].climb / 60;
 const fmtH = h => { const m = Math.round(h * 60); return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`; };
 const fmtT = s => { s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`; };
 function hilly(r) {
@@ -577,7 +639,7 @@ function renderResults() {
   const box = $('#results');
   box.innerHTML = S.routes.map((r, i) => `<button class="card ${i === S.sel ? 'sel' : ''}" data-i="${i}">
     <span class="dot" style="background:${r.color}"></span>
-    <div class="ct"><b>${esc(r.label || r.name)}</b><small>${hilly(r)} · ${fmtH(estH(r))}</small></div>
+    <div class="ct"><b>${esc(r.label || r.name)}</b><small>${hilly(r)} · ${fmtH(estH(r))}${r.off != null ? ' · ' + Math.round(r.off * 100) + ' % chemins' : ''}</small></div>
     <div class="stats"><span><b>${r.distKm.toFixed(1)}</b> km</span><span>${Math.round(r.ascent)} m D+</span></div>
   </button>`).join('');
   $$('#results .card').forEach(b => b.onclick = () => select(+b.dataset.i));
@@ -590,6 +652,12 @@ function select(i) {
   $('#dUp').textContent = Math.round(r.ascent);
   $('#dTime').textContent = fmtH(estH(r));
   $('#dMax').textContent = r.hasEle ? Math.round(r.maxGrade) + ' %' : '–';
+  if (r.off != null) {
+    const off = Math.round(r.off * 100);
+    $('#sPaved').style.width = (100 - off) + '%'; $('#sOff').style.width = off + '%';
+    $('#sPavedTxt').textContent = `Bitume ${100 - off} %`; $('#sOffTxt').textContent = `Chemins / terre ${off} %`;
+    $('#dSurf').hidden = false;
+  } else $('#dSurf').hidden = true;
   S.hoverD = null; drawProfile();
   fit(lines[i].getBounds());
 }
@@ -658,12 +726,12 @@ cv.addEventListener('pointerleave', () => { S.hoverD = null; drawProfile(); if (
 addEventListener('resize', () => drawProfile());
 
 /* ---------- GPX ---------- */
-function toGPX(pts, name) {
+function toGPX(pts, name, type = 'cycling') {
   const body = pts.map(p => `   <trkpt lat="${p[0].toFixed(6)}" lon="${p[1].toFixed(6)}">${p[2] != null && !isNaN(p[2]) ? `<ele>${(+p[2]).toFixed(1)}</ele>` : ''}${p[3] ? `<time>${new Date(p[3]).toISOString()}</time>` : ''}</trkpt>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="Boucles Route" xmlns="http://www.topografix.com/GPX/1/1">
  <metadata><name>${esc(name)}</name></metadata>
- <trk><name>${esc(name)}</name><type>cycling</type>
+ <trk><name>${esc(name)}</name><type>${type}</type>
   <trkseg>
 ${body}
   </trkseg>
@@ -671,18 +739,22 @@ ${body}
 </gpx>`;
 }
 function download(text, fn) {
+  if (window.Android) { Android.saveGpx(fn, text); return; }
   const u = URL.createObjectURL(new Blob([text], { type: 'application/gpx+xml' }));
   const a = document.createElement('a'); a.href = u; a.download = fn; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(u), 10000);
 }
+const gpxType = r => DISC[(r && r.disc) || S.disc].gpx;
 const routeName = r => r.label || `${r.name} – ${Math.round(r.distKm)} km${S.startName ? ' depuis ' + S.startName : ''}`;
 const fileName = n => n.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '_').replace(/_+/g, '_').slice(0, 60) + '.gpx';
-$('#btnGpx').onclick = () => { const r = cur(); if (r) { download(toGPX(r.coords, routeName(r)), fileName(routeName(r))); toast('GPX téléchargé'); } };
+$('#btnGpx').onclick = () => { const r = cur(); if (r) { download(toGPX(r.coords, routeName(r), gpxType(r)), fileName(routeName(r))); if (!window.Android) toast('GPX téléchargé'); } };
 $('#btnShare').onclick = async () => {
   const r = cur(); if (!r) return;
-  const name = routeName(r), f = new File([toGPX(r.coords, name)], fileName(name), { type: 'application/gpx+xml' });
+  const name = routeName(r);
+  if (window.Android) { Android.shareGpx(fileName(name), toGPX(r.coords, name, gpxType(r))); return; }
+  const f = new File([toGPX(r.coords, name, gpxType(r))], fileName(name), { type: 'application/gpx+xml' });
   if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], title: name }); } catch {} }
-  else { download(toGPX(r.coords, name), f.name); toast('Partage non disponible ici : GPX téléchargé'); }
+  else { download(toGPX(r.coords, name, gpxType(r)), f.name); toast('Partage non disponible ici : GPX téléchargé'); }
 };
 
 /* ---------- favourites & import ---------- */
@@ -690,7 +762,7 @@ const favs = () => store.get('vr-favs', []);
 $('#btnFav').onclick = () => {
   const r = cur(); if (!r) return;
   const list = favs();
-  list.unshift({ id: Date.now(), name: routeName(r), date: new Date().toISOString(), distKm: r.distKm, ascent: r.ascent,
+  list.unshift({ id: Date.now(), disc: r.disc || S.disc, off: r.off, name: routeName(r), date: new Date().toISOString(), distKm: r.distKm, ascent: r.ascent,
     c: r.coords.map(c => [+c[0].toFixed(5), +c[1].toFixed(5), c[2] == null ? null : Math.round(c[2])]) });
   if (list.length > 30) list.length = 30;
   toast(store.set('vr-favs', list) ? 'Ajouté aux favoris ⭐' : "Impossible d'enregistrer (stockage indisponible)");
@@ -703,12 +775,12 @@ function showSingle(r) {
 function renderFavs() {
   const l = favs();
   $('#favList').innerHTML = l.length ? l.map(f => `<div class="fav">
-    <button class="fopen" data-id="${f.id}"><b>${esc(f.name)}</b><small>${f.distKm.toFixed(1)} km · ${Math.round(f.ascent)} m D+ · ${new Date(f.date).toLocaleDateString('fr-FR')}</small></button>
+    <button class="fopen" data-id="${f.id}"><b>${esc(f.name)}</b><small>${(DISC[f.disc || 'route'] || DISC.route).icon} ${f.distKm.toFixed(1)} km · ${Math.round(f.ascent)} m D+ · ${new Date(f.date).toLocaleDateString('fr-FR')}</small></button>
     <button class="fdel" data-id="${f.id}" title="Supprimer" aria-label="Supprimer">✕</button></div>`).join('')
     : '<p class="empty">Aucun favori pour l\'instant.<br>Génère un itinéraire puis appuie sur ☆ Favori.</p>';
   $$('.fopen').forEach(b => b.onclick = () => {
     const f = favs().find(x => String(x.id) === b.dataset.id); if (!f) return;
-    const r = buildRoute(f.c.map(x => [x[0], x[1], x[2]]), f.ascent); r.label = r.name = f.name; showSingle(r);
+    const r = buildRoute(f.c.map(x => [x[0], x[1], x[2]]), f.ascent); r.label = r.name = f.name; r.disc = f.disc || 'route'; r.off = f.off ?? null; showSingle(r);
   });
   $$('.fdel').forEach(b => b.onclick = () => {
     if (b.dataset.confirm) { store.set('vr-favs', favs().filter(x => String(x.id) !== b.dataset.id)); renderFavs(); }
@@ -735,7 +807,7 @@ function nearest(r, pt, from) {
   if (bd > 0.25) scan(0, c.length - 1);
   return { i: bi, d: bd };
 }
-async function wake() { try { if (S.ride && 'wakeLock' in navigator) S.ride.wl = await navigator.wakeLock.request('screen'); } catch {} }
+async function wake() { if (window.Android) { try { Android.keepScreenOn(true); } catch {} return; } try { if (S.ride && 'wakeLock' in navigator) S.ride.wl = await navigator.wakeLock.request('screen'); } catch {} }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.ride) wake(); });
 function startRide() {
   const r = cur(); if (!r) return;
@@ -786,6 +858,7 @@ function stopRide() {
   const R = S.ride; if (!R) return;
   navigator.geolocation.clearWatch(R.watch); clearInterval(R.tick);
   try { R.wl && R.wl.release(); } catch {}
+  if (window.Android) try { Android.keepScreenOn(false); } catch {}
   S.ride = null; document.body.classList.remove('riding');
   if (riderMk) riderMk.remove();
   const el = (Date.now() - R.t0) / 1000;
@@ -800,7 +873,7 @@ function stopRide() {
     <button class="btn" id="mClose">Fermer</button>`;
   $('#modal').hidden = false;
   const ex = $('#mExport');
-  if (ex) ex.onclick = () => { const n = `Sortie du ${new Date(R.t0).toLocaleDateString('fr-FR')}`; download(toGPX(R.track, n), fileName(n)); };
+  if (ex) ex.onclick = () => { const n = `Sortie du ${new Date(R.t0).toLocaleDateString('fr-FR')}`; download(toGPX(R.track, n, gpxType(R.r)), fileName(n)); };
   $('#mClose').onclick = () => { $('#modal').hidden = true; if (lines[S.sel]) fit(lines[S.sel].getBounds()); };
 }
 $('#btnRide').onclick = startRide;
@@ -838,16 +911,41 @@ map.on('click', e => {
 map.on('contextmenu', e => { if (!S.ride) setStart(e.latlng.lat, e.latlng.lng); });
 
 // preferences
-const PREF_IDS = ['km', 'type', 'dir', 'prof', 'relief', 'speed'];
-const prefs = store.get('vr-prefs', {});
-PREF_IDS.forEach(id => { if (prefs[id] != null) $('#' + id).value = prefs[id]; });
-const savePrefs = () => store.set('vr-prefs', Object.fromEntries(PREF_IDS.map(id => [id, $('#' + id).value])));
-PREF_IDS.forEach(id => $('#' + id).addEventListener('change', savePrefs));
+const GLOBAL_IDS = ['type', 'dir', 'relief'], DISC_IDS = ['km', 'prof', 'speed'];
+const gprefs = store.get('vr-prefs', {});
+GLOBAL_IDS.forEach(id => { if (gprefs[id] != null) $('#' + id).value = gprefs[id]; });
+const saveGlobal = () => store.set('vr-prefs', Object.fromEntries(GLOBAL_IDS.map(id => [id, $('#' + id).value])));
+GLOBAL_IDS.forEach(id => $('#' + id).addEventListener('change', saveGlobal));
+const saveDisc = () => store.set('vr-disc-' + S.disc, Object.fromEntries(DISC_IDS.map(id => [id, $('#' + id).value])));
+DISC_IDS.forEach(id => $('#' + id).addEventListener('change', saveDisc));
 const kmOut = () => $('#kmOut').textContent = $('#km').value + ' km';
-$('#km').addEventListener('input', kmOut); kmOut();
+$('#km').addEventListener('input', kmOut);
+function setLayer(name) {
+  if (!base[name]) return;
+  Object.values(base).forEach(l => map.removeLayer(l));
+  base[name].addTo(map); store.set('vr-layer', name);
+}
+function setDisc(d, init) {
+  if (!DISC[d]) d = 'route';
+  S.disc = d; const D = DISC[d]; store.set('vr-disc', d);
+  $$('#disc button').forEach(b => b.classList.toggle('on', b.dataset.d === d));
+  $('#brandIcon').textContent = D.icon; $('#brandName').textContent = 'Boucles ' + D.label;
+  $('#profLbl').textContent = D.profLabel;
+  $('#prof').innerHTML = D.profiles.map(p => `<option value="${p[0]}">${p[1]}</option>`).join('');
+  const km = $('#km'); km.min = D.km[0]; km.max = D.km[1]; km.step = 5;
+  const p = store.get('vr-disc-' + d, {});
+  km.value = p.km != null ? p.km : D.km[2];
+  $('#prof').value = p.prof != null ? p.prof : D.profiles[0][0];
+  if (!$('#prof').value) $('#prof').value = D.profiles[0][0];
+  $('#speed').value = p.speed != null ? p.speed : D.speed;
+  kmOut();
+  if (!init) { clearRoutes(); status(''); setLayer(D.layer); toast(`Mode ${D.label} ${D.icon}`, 1500); }
+}
+$$('#disc button').forEach(b => b.onclick = () => { if (!S.ride && !S.busy && b.dataset.d !== S.disc) setDisc(b.dataset.d); });
+setDisc(store.get('vr-disc', 'route'), true);
 $('#speed').addEventListener('change', () => { if (S.routes.length) { renderResults(); if (cur()) $('#dTime').textContent = fmtH(estH(cur())); } });
-if (!(navigator.canShare)) $('#btnShare').style.display = 'none';
-if (!navigator.canShare) $('.actions').style.gridTemplateColumns = '1fr 1fr';
+if (!navigator.canShare && !window.Android) $('#btnShare').style.display = 'none';
+if (!navigator.canShare && !window.Android) $('.actions').style.gridTemplateColumns = '1fr 1fr';
 
 renderFavs();
 locate(false);
