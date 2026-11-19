@@ -286,7 +286,7 @@ const store = {
 };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const COLORS = ['#f97316', '#2563eb', '#16a34a'];
-const S = { disc: 'route', badProf: new Set(), start: null, startName: '', routes: [], sel: -1, wind: null, engine: 'brouter', pick: false, ride: null, hoverD: null, busy: false };
+const S = { disc: 'route', badProf: new Map(), uploaded: {}, start: null, startName: '', routes: [], sel: -1, wind: null, engine: 'brouter', pick: false, ride: null, hoverD: null, busy: false };
 
 /* ---------- toast / status ---------- */
 let toastT;
@@ -321,18 +321,25 @@ const DISC = {
   route:  { label: 'Route',  icon: '🚴', short: '',       km: [10, 200, 60], speed: 25, climb: 4, layer: 'Plan',                 gpx: 'cycling',
             profLabel: 'Routes',  profiles: [['fastbike', 'Rapides (vélo de route)'], ['fastbike-lowtraffic', 'Peu de trafic'], ['fastbike-verylowtraffic', 'Très peu de trafic']] },
   gravel: { label: 'Gravel', icon: '🌾', short: 'gravel', km: [10, 150, 50], speed: 19, climb: 5, layer: 'Vélo (CyclOSM)',       gpx: 'gravel_cycling',
-            profLabel: 'Terrain', profiles: [['gravel', 'Chemins roulants'], ['trekking', 'Mixte (pistes + chemins)']] },
+            profLabel: 'Terrain', profiles: [['c:gravel', 'Chemins roulants'], ['trekking', 'Mixte (pistes + routes)']] },
   vtt:    { label: 'VTT',    icon: '🚵', short: 'VTT',    km: [5, 80, 30],   speed: 13, climb: 7, layer: 'Relief (OpenTopoMap)', gpx: 'mountain_biking',
-            profLabel: 'Terrain', profiles: [['mtb-zossebart', 'Sentiers (XC)'], ['mtb-zossebart-hard', 'Sentiers techniques'], ['gravel', 'Chemins larges']] }
+            profLabel: 'Terrain', profiles: [['c:vtt', 'Sentiers (XC)'], ['c:vtt-hard', 'Sentiers techniques'], ['c:gravel', 'Chemins larges']] }
 };
 const FALLBACK = {
   'fastbike-lowtraffic': ['fastbike'], 'fastbike-verylowtraffic': ['fastbike-lowtraffic', 'fastbike'],
   'gravel': ['trekking'], 'trekking': ['fastbike'],
-  'mtb-zossebart': ['mtb', 'hiking-mountain', 'gravel'], 'mtb-zossebart-hard': ['mtb-zossebart', 'mtb', 'hiking-mountain', 'gravel']
+  'c:gravel': ['gravel', 'trekking'], 'c:vtt': ['c:gravel', 'gravel', 'trekking'], 'c:vtt-hard': ['c:vtt', 'c:gravel', 'gravel']
+};
+// Profils maison envoyés au serveur BRouter (POST /brouter/profile/<id>)
+const CUSTOM = {
+  'c:gravel':   { id: 'custom_bouclesvelo-gravel-1',  text: "# Boucles Velo - gravel : chemins roulants, petites routes en liaison\n---context:global\nassign validForBikes 1\nassign downhillcost 0\nassign downhillcutoff 0\nassign uphillcost 0\nassign uphillcutoff 0\n\n---context:way\nassign turncost 0\nassign initialcost 0\nassign bikeallowed bicycle=yes|designated|permissive\nassign badoneway\n  switch reversedirection=yes\n    switch oneway:bicycle=yes 1\n      switch oneway= junction=roundabout oneway=yes|true|1\n    oneway=-1\nassign onewaypenalty\n  switch badoneway\n    switch oneway:bicycle=no 0\n      switch cycleway=opposite|opposite_lane|opposite_track 0 10000\n    0\nassign accesspenalty\n  switch or bicycle=no|dismount and access=private|no not bikeallowed 10000 0\nassign isgood switch surface=fine_gravel|gravel|compacted|unpaved 1 tracktype=grade2|grade3\nassign isrough switch surface=dirt|ground|grass|sand 1 tracktype=grade4|grade5\nassign costfactor\n  add max onewaypenalty accesspenalty\n  switch or highway= highway=motorway|motorway_link|trunk|trunk_link|steps|proposed|abandoned 10000\n  switch highway=track switch isrough 1.5 1.0\n  switch highway=path|bridleway switch bikeallowed switch isrough 1.5 1.15 switch isrough 2.4 1.6\n  switch highway=cycleway switch isgood 1.0 1.3\n  switch highway=footway|pedestrian switch bikeallowed 1.6 4\n  switch highway=residential|living_street|service|unclassified|road switch or isgood isrough 1.1 1.7\n  switch highway=tertiary|tertiary_link 2.2\n  switch highway=secondary|secondary_link 3.5\n  switch highway=primary|primary_link 6\n  3\n\n---context:node\nassign initialcost 0\n" },
+  'c:vtt':      { id: 'custom_bouclesvelo-vtt-1',     text: "# Boucles Velo - vtt : sentiers et chemins VTT\n---context:global\nassign validForBikes 1\nassign downhillcost 0\nassign downhillcutoff 0\nassign uphillcost 0\nassign uphillcutoff 0\n\n---context:way\nassign turncost 0\nassign initialcost 0\nassign bikeallowed bicycle=yes|designated|permissive\nassign badoneway\n  switch reversedirection=yes\n    switch oneway:bicycle=yes 1\n      switch oneway= junction=roundabout oneway=yes|true|1\n    oneway=-1\nassign onewaypenalty\n  switch badoneway\n    switch oneway:bicycle=no 0\n      switch cycleway=opposite|opposite_lane|opposite_track 0 10000\n    0\nassign accesspenalty\n  switch or bicycle=no|dismount and access=private|no not bikeallowed 10000 0\nassign isgood switch surface=fine_gravel|gravel|compacted|unpaved 1 tracktype=grade2|grade3\nassign isrough switch surface=dirt|ground|grass|sand 1 tracktype=grade4|grade5\nassign costfactor\n  add max onewaypenalty accesspenalty\n  switch or highway= highway=motorway|motorway_link|trunk|trunk_link|proposed|abandoned 10000\n  switch highway=steps 10000\n  switch highway=path|bridleway switch bikeallowed 1.0 switch isrough 1.05 1.15\n  switch highway=track switch isrough 1.15 1.35\n  switch highway=footway switch bikeallowed 1.5 3\n  switch highway=cycleway 1.8\n  switch highway=residential|living_street|service|unclassified|road switch or isgood isrough 1.5 2.2\n  switch highway=tertiary|tertiary_link 3\n  switch highway=secondary|secondary_link 5\n  switch highway=primary|primary_link 8\n  4\n\n---context:node\nassign initialcost 0\n" },
+  'c:vtt-hard': { id: 'custom_bouclesvelo-vtthard-1', text: "# Boucles Velo - vtt-hard : sentiers et chemins VTT\n---context:global\nassign validForBikes 1\nassign downhillcost 0\nassign downhillcutoff 0\nassign uphillcost 0\nassign uphillcutoff 0\n\n---context:way\nassign turncost 0\nassign initialcost 0\nassign bikeallowed bicycle=yes|designated|permissive\nassign badoneway\n  switch reversedirection=yes\n    switch oneway:bicycle=yes 1\n      switch oneway= junction=roundabout oneway=yes|true|1\n    oneway=-1\nassign onewaypenalty\n  switch badoneway\n    switch oneway:bicycle=no 0\n      switch cycleway=opposite|opposite_lane|opposite_track 0 10000\n    0\nassign accesspenalty\n  switch or bicycle=no|dismount and access=private|no not bikeallowed 10000 0\nassign isgood switch surface=fine_gravel|gravel|compacted|unpaved 1 tracktype=grade2|grade3\nassign isrough switch surface=dirt|ground|grass|sand 1 tracktype=grade4|grade5\nassign costfactor\n  add max onewaypenalty accesspenalty\n  switch or highway= highway=motorway|motorway_link|trunk|trunk_link|proposed|abandoned 10000\n  switch highway=steps 15\n  switch highway=path|bridleway switch bikeallowed 1.0 switch isrough 1.0 1.15\n  switch highway=track switch isrough 1.5 1.6\n  switch highway=footway switch bikeallowed 1.5 3\n  switch highway=cycleway 1.8\n  switch highway=residential|living_street|service|unclassified|road switch or isgood isrough 1.5 2.6\n  switch highway=tertiary|tertiary_link 3\n  switch highway=secondary|secondary_link 5\n  switch highway=primary|primary_link 8\n  4\n\n---context:node\nassign initialcost 0\n" }
 };
 const PROF_FR = { 'fastbike': 'route rapide', 'fastbike-lowtraffic': 'route peu fréquentée', 'fastbike-verylowtraffic': 'route très peu fréquentée',
   'gravel': 'gravel', 'trekking': 'vélo loisir (mixte)', 'mtb-zossebart': 'VTT XC', 'mtb-zossebart-hard': 'VTT technique', 'mtb': 'VTT',
-  'hiking-mountain': 'sentiers de randonnée', 'osrm': 'OSRM vélo' };
+  'hiking-mountain': 'sentiers de randonnée', 'osrm': 'OSRM vélo',
+  'c:gravel': 'gravel (chemins)', 'c:vtt': 'VTT sentiers', 'c:vtt-hard': 'VTT technique' };
 const CARD_LONG = { N: 'le nord', NE: 'le nord-est', E: "l'est", SE: 'le sud-est', S: 'le sud', SO: 'le sud-ouest', O: "l'ouest", NO: 'le nord-ouest' };
 
 /* ---------- map ---------- */
@@ -428,9 +435,9 @@ async function loadWeather(lat, lon) {
 }
 
 /* ---------- network ---------- */
-async function fetchT(url, ms = 20000) {
+async function fetchT(url, ms = 20000, opts = {}) {
   const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms);
-  try { return await fetch(url, { signal: ac.signal }); } finally { clearTimeout(t); }
+  try { return await fetch(url, { ...opts, signal: ac.signal }); } finally { clearTimeout(t); }
 }
 const isNet = e => e && (e.name === 'TypeError' || e.name === 'AbortError');
 
@@ -438,7 +445,11 @@ const isNet = e => e && (e.name === 'TypeError' || e.name === 'AbortError');
 async function routeBRouter(pts, profile) {
   const lonlats = pts.map(p => p[1].toFixed(6) + ',' + p[0].toFixed(6)).join('|');
   const res = await fetchT(`https://brouter.de/brouter?lonlats=${lonlats}&profile=${profile}&alternativeidx=0&format=geojson`, 60000);
-  if (!res.ok) throw new Error((await res.text()).slice(0, 200) || ('HTTP ' + res.status));
+  if (!res.ok) {
+    const t = (await res.text()).trim();
+    // BRouter répond « 500 » avec un corps vide quand le profil n'existe pas sur le serveur
+    throw new Error(t ? t.slice(0, 200) : (res.status >= 500 ? `profile missing or server error (HTTP ${res.status})` : 'HTTP ' + res.status));
+  }
   const f = (await res.json()).features[0];
   const coords = f.geometry.coordinates.map(c => [c[1], c[0], c[2] != null ? c[2] : null]);
   const r = buildRoute(coords, parseFloat(f.properties['filtered ascend']));
@@ -470,15 +481,30 @@ async function routeOSRM(pts) {
   return buildRoute(coords, null);
 }
 const isProfErr = e => /profil|\.brf|not ?found|exist|unknown|no such/i.test((e && e.message) || '');
+async function ensureProfile(key, force) {
+  if (S.uploaded[key] && !force) return S.uploaded[key];
+  const c = CUSTOM[key];
+  const res = await fetchT('https://brouter.de/brouter/profile/' + c.id, 30000, { method: 'POST', body: c.text, headers: { 'Content-Type': 'text/plain' } });
+  const txt = await res.text(); let j = {};
+  try { j = JSON.parse(txt); } catch {}
+  if (!res.ok || j.error) throw new Error('profile upload failed: ' + (j.error || 'HTTP ' + res.status));
+  return (S.uploaded[key] = j.profileid || c.id);
+}
+async function routeWith(pts, p) {
+  if (!CUSTOM[p]) return routeBRouter(pts, p);
+  try { return await routeBRouter(pts, await ensureProfile(p)); }
+  catch (e) { if (!isProfErr(e) || /upload/.test(e.message)) throw e; return routeBRouter(pts, await ensureProfile(p, true)); }  // profil effacé du serveur : on le renvoie
+}
+const profBlocked = p => { const t = S.badProf.get(p); return t && Date.now() - t < 10 * 60 * 1000; };
 async function routeAny(pts) {
   const sel = $('#prof').value;
   if (S.engine === 'brouter') {
-    const chain = [sel, ...(FALLBACK[sel] || [])].filter(p => !S.badProf.has(p));
+    const chain = [sel, ...(FALLBACK[sel] || [])].filter(p => !profBlocked(p));
     for (const p of chain) {
-      try { const r = await routeBRouter(pts, p); r.profile = p; return r; }
+      try { const r = await routeWith(pts, p); r.profile = p; return r; }
       catch (e) {
         if (isNet(e)) { S.engine = 'osrm'; toast('BRouter injoignable : bascule sur OSRM'); break; }
-        if (isProfErr(e)) { S.badProf.add(p); continue; }
+        if (isProfErr(e)) { console.warn('profil', p, e.message); S.badProf.set(p, Date.now()); continue; }
         throw e;
       }
     }
@@ -597,7 +623,7 @@ async function generate() {
       $('#status').style.flexDirection = 'column'; $('#status').style.alignItems = 'flex-start';
     } else { $('#status').style.flexDirection = ''; $('#status').style.alignItems = ''; }
   }
-  else { renderResults(); status(netFail ? 'Impossible de joindre le service d\'itinéraires. Vérifie ta connexion.' : 'Aucun itinéraire trouvé ici. Déplace le départ ou change la distance.'); if (lastErr) console.warn(lastErr); }
+  else { renderResults(); status(netFail ? 'Impossible de joindre le service d\'itinéraires. Vérifie ta connexion.' : 'Aucun itinéraire trouvé ici. Déplace le départ ou change la distance.' + (lastErr ? ` (détail : ${esc(String(lastErr.message).slice(0, 90))})` : '')); if (lastErr) console.warn(lastErr); }
   S.busy = false; $('#btnGen').disabled = false;
 }
 
