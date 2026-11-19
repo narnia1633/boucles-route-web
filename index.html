@@ -166,7 +166,7 @@ body.riding #panel,body.riding #topbar{display:none}
 <section id="panel">
   <button class="handle" id="handle" aria-label="Agrandir / réduire"><span></span></button>
   <div class="head">
-    <div class="brand"><span id="brandIcon">🚴</span> <b id="brandName">Boucles Route</b></div>
+    <div class="brand"><span id="brandIcon">🚴</span> <b id="brandName">Boucles Vélo</b></div>
     <div class="tabs">
       <button class="tab on" data-t="create">Créer</button>
       <button class="tab" data-t="favs">Favoris</button>
@@ -729,7 +729,7 @@ addEventListener('resize', () => drawProfile());
 function toGPX(pts, name, type = 'cycling') {
   const body = pts.map(p => `   <trkpt lat="${p[0].toFixed(6)}" lon="${p[1].toFixed(6)}">${p[2] != null && !isNaN(p[2]) ? `<ele>${(+p[2]).toFixed(1)}</ele>` : ''}${p[3] ? `<time>${new Date(p[3]).toISOString()}</time>` : ''}</trkpt>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Boucles Route" xmlns="http://www.topografix.com/GPX/1/1">
+<gpx version="1.1" creator="Boucles Vélo" xmlns="http://www.topografix.com/GPX/1/1">
  <metadata><name>${esc(name)}</name></metadata>
  <trk><name>${esc(name)}</name><type>${type}</type>
   <trkseg>
@@ -929,7 +929,7 @@ function setDisc(d, init) {
   if (!DISC[d]) d = 'route';
   S.disc = d; const D = DISC[d]; store.set('vr-disc', d);
   $$('#disc button').forEach(b => b.classList.toggle('on', b.dataset.d === d));
-  $('#brandIcon').textContent = D.icon; $('#brandName').textContent = 'Boucles ' + D.label;
+  $('#brandIcon').textContent = D.icon; $('#brandName').textContent = 'Boucles Vélo';
   $('#profLbl').textContent = D.profLabel;
   $('#prof').innerHTML = D.profiles.map(p => `<option value="${p[0]}">${p[1]}</option>`).join('');
   const km = $('#km'); km.min = D.km[0]; km.max = D.km[1]; km.step = 5;
